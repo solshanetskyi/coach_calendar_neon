@@ -81,7 +81,7 @@ SMTP_FROM=verified@yourdomain.com
 
 | File | Purpose |
 |------|---------|
-| `migrate_from_production.go` | Migration script |
+| `scripts/migrate_from_production.go` | Migration script |
 | `run_migration.sh` | Run migration helper |
 | `connect_neon.sh` | Connect to Neon via psql |
 | `.env` | Local development config |

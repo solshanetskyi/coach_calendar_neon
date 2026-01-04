@@ -27,4 +27,4 @@ echo "Loaded DATABASE_URL from .env.production.example"
 echo ""
 
 # Run the migration
-go run migrate_from_production.go
+go run scripts/migrate_from_production.go

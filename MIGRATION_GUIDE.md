@@ -4,7 +4,7 @@ This guide explains how to migrate bookings and blocked slots from your producti
 
 ## Overview
 
-The migration script (`migrate_from_production.go`) will:
+The migration script (`scripts/migrate_from_production.go`) will:
 1. Fetch all bookings and blocked slots from your production API
 2. Insert them into your Neon database
 3. Skip any records that already exist (based on `slot_time`)
@@ -42,7 +42,7 @@ If you prefer to run it manually:
 export DATABASE_URL='postgresql://neondb_owner:password@ep-xxx.neon.tech/bookings?sslmode=require'
 
 # Run the migration
-go run migrate_from_production.go
+go run scripts/migrate_from_production.go
 ```
 
 ## What the Migration Does

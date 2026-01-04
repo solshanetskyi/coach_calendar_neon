@@ -106,7 +106,7 @@ SELECT * FROM bookings ORDER BY slot_time LIMIT 5;
 
 ## Files Created
 
-- **`migrate_from_production.go`** - The migration script
+- **`scripts/migrate_from_production.go`** - The migration script
 - **`run_migration.sh`** - Shell wrapper to run the migration
 - **`MIGRATION_GUIDE.md`** - Detailed documentation
 - **`README_MIGRATION.md`** - This quick start guide
