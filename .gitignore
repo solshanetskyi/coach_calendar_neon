@@ -19,6 +19,7 @@ __debug_bin*
 .env
 .env.development
 .env.production
+.env.production.example
 
 # OS files
 .DS_Store
