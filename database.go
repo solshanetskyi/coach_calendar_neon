@@ -2,9 +2,12 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"log"
+	"os"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/lib/pq"
 )
 
 var db *sql.DB
@@ -15,33 +18,52 @@ type AvailableSlot struct {
 }
 
 func initDB() error {
-	var err error
-	db, err = sql.Open("sqlite", "./bookings.db")
-	if err != nil {
-		return err
+	// Get database URL from environment variable
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		return fmt.Errorf("DATABASE_URL environment variable is not set")
 	}
 
+	var err error
+	db, err = sql.Open("postgres", databaseURL)
+	if err != nil {
+		return fmt.Errorf("failed to open database connection: %w", err)
+	}
+
+	// Test the connection
+	if err = db.Ping(); err != nil {
+		return fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	log.Println("Successfully connected to Neon PostgreSQL database")
+
+	// Create tables with PostgreSQL syntax
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS bookings (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		slot_time DATETIME NOT NULL UNIQUE,
+		id SERIAL PRIMARY KEY,
+		slot_time TIMESTAMP WITH TIME ZONE NOT NULL UNIQUE,
 		name TEXT NOT NULL,
 		email TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		duration INTEGER NOT NULL DEFAULT 30
 	);
 	CREATE INDEX IF NOT EXISTS idx_slot_time ON bookings(slot_time);
 
 	CREATE TABLE IF NOT EXISTS blocked_slots (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		slot_time DATETIME NOT NULL UNIQUE,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		id SERIAL PRIMARY KEY,
+		slot_time TIMESTAMP WITH TIME ZONE NOT NULL UNIQUE,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX IF NOT EXISTS idx_blocked_slot_time ON blocked_slots(slot_time);
 	`
 
 	_, err = db.Exec(createTableSQL)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create tables: %w", err)
+	}
+
+	log.Println("Database tables initialized successfully")
+	return nil
 }
 
 func generateAvailableSlots() []AvailableSlot {

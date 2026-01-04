@@ -6,14 +6,23 @@ A simple meeting booking application built with Go.
 
 ```
 .
-├── main.go              # Application entry point and routing
-├── database.go          # Database initialization and slot generation
-├── email.go             # Email service for booking confirmations
+├── main.go                       # Application entry point and routing
+├── database.go                   # Database initialization and slot generation
+├── email.go                      # Email service for booking confirmations
+├── zoom.go                       # Zoom meeting integration
 ├── handlers/
-│   ├── api.go          # API handlers for bookings and admin operations
-│   └── pages.go        # Page handlers (home, admin, health)
+│   ├── api.go                   # API handlers for bookings and admin operations
+│   └── pages.go                 # Page handlers (home, admin, health)
+├── export_sqlite_data.go         # SQLite to JSON export utility
+├── import_to_postgres.go         # JSON to PostgreSQL import utility
+├── setup-dev-env.sh              # Quick development setup script
 ├── go.mod
-└── bookings.db         # SQLite database (generated at runtime)
+├── .env.example                  # Environment variables template
+├── .env.development.example      # Development environment template
+├── .env.production.example       # Production environment reference
+├── NEON_MIGRATION.md             # Detailed migration guide from SQLite
+├── NEON_ENVIRONMENTS.md          # Dev/Prod environment setup guide
+└── MIGRATION_SUMMARY.md          # Quick migration reference
 ```
 
 ## Features
@@ -45,7 +54,25 @@ A simple meeting booking application built with Go.
 
 ## Running the Application
 
-### Basic Setup
+### Quick Start (Development)
+
+```bash
+# 1. Set up development environment
+./setup-dev-env.sh
+
+# 2. Edit .env and add your Neon development database URL
+# Get the URL from https://console.neon.tech
+
+# 3. Install dependencies
+go mod tidy
+
+# 4. Run the application
+go run .
+```
+
+The server will start on port 8080 by default (configurable via `PORT` environment variable).
+
+### Manual Setup
 
 ```bash
 # Build
@@ -57,8 +84,6 @@ go build -o coach-calendar
 # Or directly with go run
 go run .
 ```
-
-The server will start on port 8080 by default (configurable via `PORT` environment variable).
 
 ### Email Configuration (Optional)
 
@@ -167,11 +192,67 @@ When deploying to AWS (EC2, ECS, Lambda, etc.):
 
 ## Database
 
-The application uses SQLite (pure Go implementation via `modernc.org/sqlite`) with two main tables:
+The application uses **Neon PostgreSQL** for cloud-native, scalable database storage.
+
+### Database Setup
+
+#### For Development
+
+1. **Create a Neon account** at https://console.neon.tech
+2. **Create a Development project** (or development branch)
+   - Name: "Coach Calendar - Development"
+   - Copy the connection string
+3. **Configure local environment**:
+   ```bash
+   ./setup-dev-env.sh
+   # Edit .env and add your development DATABASE_URL
+   ```
+
+#### For Production (AWS Deployment)
+
+1. **Create a Production project** in Neon (or use main branch)
+   - Name: "Coach Calendar - Production"
+   - Choose region closest to your AWS deployment
+   - Copy the connection string
+2. **Set environment variable in AWS**:
+   - See [NEON_ENVIRONMENTS.md](NEON_ENVIRONMENTS.md) for detailed AWS setup
+
+#### Managing Dev/Prod Environments
+
+See [NEON_ENVIRONMENTS.md](NEON_ENVIRONMENTS.md) for complete guide on:
+- Setting up separate dev/prod databases
+- Using Neon branches for environment isolation
+- Configuring AWS services with production database
+- Using AWS Secrets Manager for secure credentials
+- Cost optimization strategies
+
+### Database Schema
+
+Two main tables:
 - `bookings` - Stores booking information (slot_time, name, email, created_at, duration)
 - `blocked_slots` - Stores administratively blocked time slots
 
-**Note:** This version uses a pure Go SQLite driver that doesn't require CGO or C compiler, making it easy to deploy on any platform including AWS App Runner.
+Tables are automatically created when the application starts.
+
+### Migration from SQLite
+
+If you have an existing SQLite database, see [NEON_MIGRATION.md](NEON_MIGRATION.md) for migration instructions.
+
+Quick migration steps:
+```bash
+# 1. Export existing SQLite data
+go run export_sqlite_data.go
+
+# 2. Set up Neon DATABASE_URL in .env file
+cp .env.example .env
+# Edit .env and add your DATABASE_URL
+
+# 3. Import data to Neon
+go run import_to_postgres.go
+
+# 4. Run application
+go run .
+```
 
 ## Email Confirmations
 

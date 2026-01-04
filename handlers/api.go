@@ -163,11 +163,11 @@ func (h *APIHandlers) CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	// Insert booking into database (store in UTC)
 	_, err = h.DB.Exec(
-		"INSERT INTO bookings (slot_time, name, email) VALUES (?, ?, ?)",
+		"INSERT INTO bookings (slot_time, name, email) VALUES ($1, $2, $3)",
 		slotTimeUTC, req.Name, req.Email,
 	)
 	if err != nil {
-		if err.Error() == "UNIQUE constraint failed: bookings.slot_time" {
+		if strings.Contains(err.Error(), "duplicate key value") || strings.Contains(err.Error(), "unique constraint") {
 			http.Error(w, "Slot already booked", http.StatusConflict)
 		} else {
 			http.Error(w, "Failed to create booking", http.StatusInternalServerError)
@@ -308,7 +308,7 @@ func (h *APIHandlers) BlockSlot(w http.ResponseWriter, r *http.Request) {
 
 	// Check if slot is already booked
 	var count int
-	err = h.DB.QueryRow("SELECT COUNT(*) FROM bookings WHERE slot_time = ?", slotTimeUTC).Scan(&count)
+	err = h.DB.QueryRow("SELECT COUNT(*) FROM bookings WHERE slot_time = $1", slotTimeUTC).Scan(&count)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		log.Printf("Error checking booking: %v", err)
@@ -321,10 +321,10 @@ func (h *APIHandlers) BlockSlot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Insert blocked slot (store in UTC)
-	_, err = h.DB.Exec("INSERT INTO blocked_slots (slot_time) VALUES (?)", slotTimeUTC)
+	_, err = h.DB.Exec("INSERT INTO blocked_slots (slot_time) VALUES ($1)", slotTimeUTC)
 	if err != nil {
 		errMsg := err.Error()
-		if strings.Contains(errMsg, "UNIQUE constraint failed") || strings.Contains(errMsg, "blocked_slots.slot_time") {
+		if strings.Contains(errMsg, "duplicate key value") || strings.Contains(errMsg, "unique constraint") {
 			http.Error(w, "Slot already blocked", http.StatusConflict)
 		} else {
 			http.Error(w, fmt.Sprintf("Failed to block slot: %v", err), http.StatusInternalServerError)
@@ -365,7 +365,7 @@ func (h *APIHandlers) UnblockSlot(w http.ResponseWriter, r *http.Request) {
 	slotTimeUTC := slotTime.UTC()
 
 	// Delete blocked slot
-	result, err := h.DB.Exec("DELETE FROM blocked_slots WHERE slot_time = ?", slotTimeUTC)
+	result, err := h.DB.Exec("DELETE FROM blocked_slots WHERE slot_time = $1", slotTimeUTC)
 	if err != nil {
 		http.Error(w, "Failed to unblock slot", http.StatusInternalServerError)
 		log.Printf("Error unblocking slot: %v", err)

@@ -3,6 +3,10 @@
 *.db-shm
 *.db-wal
 
+# Data export/import files
+bookings_export.json
+blocked_slots_export.json
+
 # Build artifacts
 coach-calendar
 __debug_bin*
@@ -13,6 +17,8 @@ __debug_bin*
 
 # Environment files
 .env
+.env.development
+.env.production
 
 # OS files
 .DS_Store
