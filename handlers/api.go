@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -27,6 +28,7 @@ type Booking struct {
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
+	ZoomLink  string    `json:"zoom_link,omitempty"`
 }
 
 type BookingRequest struct {
@@ -161,10 +163,21 @@ func (h *APIHandlers) CreateBooking(w http.ResponseWriter, r *http.Request) {
 	// Convert to UTC for consistent storage
 	slotTimeUTC := slotTime.UTC()
 
-	// Insert booking into database (store in UTC)
+	// Create Zoom meeting first (before database insert) if enabled
+	var zoomLink string
+	createZoomMeeting := strings.ToLower(os.Getenv("CREATE_ZOOM_MEETING"))
+	if (createZoomMeeting == "yes" || createZoomMeeting == "true") && h.ZoomService != nil {
+		zoomLink, err = h.ZoomService.CreateMeeting(req.Name, req.Email, slotTime)
+		if err != nil {
+			// Log the error but don't fail the booking
+			log.Printf("Warning: Failed to create Zoom meeting: %v", err)
+		}
+	}
+
+	// Insert booking into database with zoom_link (store in UTC)
 	_, err = h.DB.Exec(
-		"INSERT INTO bookings (slot_time, name, email) VALUES ($1, $2, $3)",
-		slotTimeUTC, req.Name, req.Email,
+		"INSERT INTO bookings (slot_time, name, email, zoom_link) VALUES ($1, $2, $3, $4)",
+		slotTimeUTC, req.Name, req.Email, sql.NullString{String: zoomLink, Valid: zoomLink != ""},
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value") || strings.Contains(err.Error(), "unique constraint") {
@@ -176,17 +189,9 @@ func (h *APIHandlers) CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var zoomLink string
-	if h.ZoomService != nil {
-		zoomLink, err = h.ZoomService.CreateMeeting(req.Name, req.Email, slotTime)
-		if err != nil {
-			// Log the error but don't fail the booking
-			log.Printf("Warning: Booking created but failed to create Zoom meeting: %v", err)
-		}
-	}
-
-	// Send confirmation email
-	if h.EmailService != nil {
+	// Send confirmation email if enabled
+	sendConfirmationEmail := strings.ToLower(os.Getenv("SEND_CONFIRMATION_EMAIL"))
+	if (sendConfirmationEmail == "yes" || sendConfirmationEmail == "true") && h.EmailService != nil {
 		err = h.EmailService.SendBookingConfirmation(req.Name, req.Email, slotTime, zoomLink)
 		if err != nil {
 			// Log the error but don't fail the booking

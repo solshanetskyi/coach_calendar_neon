@@ -21,6 +21,7 @@ type Booking struct {
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 	Duration  int       `json:"duration"`
+	ZoomLink  string    `json:"zoom_link,omitempty"`
 }
 
 type BlockedSlot struct {
@@ -44,7 +45,7 @@ func main() {
 
 	// Export bookings
 	bookings := []Booking{}
-	rows, err := db.Query("SELECT id, slot_time, name, email, created_at, duration FROM bookings")
+	rows, err := db.Query("SELECT id, slot_time, name, email, created_at, duration, COALESCE(zoom_link, '') FROM bookings")
 	if err != nil {
 		log.Fatalf("Failed to query bookings: %v", err)
 	}
@@ -52,7 +53,7 @@ func main() {
 
 	for rows.Next() {
 		var b Booking
-		if err := rows.Scan(&b.ID, &b.SlotTime, &b.Name, &b.Email, &b.CreatedAt, &b.Duration); err != nil {
+		if err := rows.Scan(&b.ID, &b.SlotTime, &b.Name, &b.Email, &b.CreatedAt, &b.Duration, &b.ZoomLink); err != nil {
 			log.Printf("Warning: Failed to scan booking row: %v", err)
 			continue
 		}

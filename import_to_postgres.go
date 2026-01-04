@@ -21,6 +21,7 @@ type Booking struct {
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 	Duration  int       `json:"duration"`
+	ZoomLink  string    `json:"zoom_link,omitempty"`
 }
 
 type BlockedSlot struct {
@@ -68,8 +69,8 @@ func main() {
 
 		for _, b := range bookings {
 			_, err := db.Exec(
-				"INSERT INTO bookings (slot_time, name, email, created_at, duration) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (slot_time) DO NOTHING",
-				b.SlotTime, b.Name, b.Email, b.CreatedAt, b.Duration,
+				"INSERT INTO bookings (slot_time, name, email, created_at, duration, zoom_link) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (slot_time) DO NOTHING",
+				b.SlotTime, b.Name, b.Email, b.CreatedAt, b.Duration, b.ZoomLink,
 			)
 			if err != nil {
 				log.Printf("Warning: Failed to import booking for %s: %v", b.SlotTime, err)
