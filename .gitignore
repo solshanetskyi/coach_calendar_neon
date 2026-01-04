@@ -1,0 +1,24 @@
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Build artifacts
+coach-calendar
+__debug_bin*
+
+# IDE files
+.vscode/
+.idea/
+
+# Environment files
+.env
+
+# OS files
+.DS_Store
+
+# SQLite temp files
+*.sql
+
+# Misc
+id,slot_time,created_at
