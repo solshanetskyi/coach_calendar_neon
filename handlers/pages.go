@@ -52,6 +52,22 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
             text-align: center;
         }
 
+        .coach-image-container {
+            margin: 0 auto 20px;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .coach-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
         .header h1 {
             font-size: 2.5rem;
             margin-bottom: 10px;
@@ -389,6 +405,9 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 <body>
     <div class="container">
         <div class="header">
+            <div class="coach-image-container">
+                <img src="/coach_image.jpg" alt="Христина Івасюк - Коуч" class="coach-image">
+            </div>
             <h1>Бронювання 30-хвилинної онлайн-консультації з Христиною Івасюк</h1>
             <p>Виберіть день, потім оберіть зручний для вас час</p>
             <div class="timezone-info" id="timezoneInfo">Завантаження часового поясу...</div>

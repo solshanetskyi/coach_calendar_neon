@@ -153,6 +153,11 @@ func main() {
 	http.HandleFunc("/health", handlers.HealthHandler)
 	http.HandleFunc("/admin", handlers.AdminHandler)
 
+	// Serve static files
+	http.HandleFunc("/coach_image.jpg", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "coach_image.jpg")
+	})
+
 	// Register API routes
 	http.HandleFunc("/api/slots", apiHandlers.GetSlots)
 	http.HandleFunc("/api/bookings", apiHandlers.CreateBooking)
