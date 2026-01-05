@@ -204,3 +204,116 @@ func (z *ZoomService) CreateMeeting(name, email string, slotTime time.Time) (str
 	log.Printf("Zoom meeting created successfully: %s (ID: %d)", meetingResp.JoinURL, meetingResp.ID)
 	return meetingResp.JoinURL, nil
 }
+
+// DeleteMeeting deletes a Zoom meeting by extracting the meeting ID from the join URL
+func (z *ZoomService) DeleteMeeting(joinURL string) error {
+	if !z.Enabled {
+		log.Println("Zoom is disabled - skipping meeting deletion")
+		return nil
+	}
+
+	if joinURL == "" {
+		log.Println("No Zoom meeting URL provided - skipping deletion")
+		return nil
+	}
+
+	// Extract meeting ID from join URL
+	// Format: https://zoom.us/j/1234567890?pwd=...
+	meetingID, err := extractMeetingIDFromURL(joinURL)
+	if err != nil {
+		log.Printf("Failed to extract meeting ID from URL: %v", err)
+		return fmt.Errorf("failed to extract meeting ID: %w", err)
+	}
+
+	// Get access token
+	token, err := z.getAccessToken()
+	if err != nil {
+		log.Printf("Failed to get Zoom access token: %v", err)
+		return fmt.Errorf("failed to get access token: %w", err)
+	}
+
+	// Delete meeting via Zoom API
+	apiURL := fmt.Sprintf("https://api.zoom.us/v2/meetings/%s", meetingID)
+	req, err := http.NewRequest("DELETE", apiURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create delete request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	// Send request
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send delete request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response (204 No Content on success, 404 if meeting doesn't exist)
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		log.Printf("Zoom delete API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+		return fmt.Errorf("zoom API returned status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
+		log.Printf("Zoom meeting %s not found (may have been already deleted)", meetingID)
+	} else {
+		log.Printf("Zoom meeting deleted successfully: %s", meetingID)
+	}
+
+	return nil
+}
+
+// extractMeetingIDFromURL extracts the meeting ID from a Zoom join URL
+func extractMeetingIDFromURL(joinURL string) (string, error) {
+	// Parse the URL
+	parsedURL, err := url.Parse(joinURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+
+	// Extract the path (e.g., "/j/1234567890")
+	// Meeting ID is the last part of the path
+	path := parsedURL.Path
+	if len(path) == 0 {
+		return "", fmt.Errorf("URL path is empty")
+	}
+
+	// Split path by "/" and get the last non-empty segment
+	parts := []string{}
+	for _, part := range []rune(path) {
+		if part != '/' {
+			parts = append(parts, string(part))
+		}
+	}
+
+	if len(parts) == 0 {
+		return "", fmt.Errorf("no meeting ID found in URL path")
+	}
+
+	// The path is typically "/j/1234567890", so we need the numeric part
+	// Extract just the numeric ID
+	pathSegments := make([]string, 0)
+	current := ""
+	for _, r := range path {
+		if r == '/' {
+			if current != "" {
+				pathSegments = append(pathSegments, current)
+				current = ""
+			}
+		} else {
+			current += string(r)
+		}
+	}
+	if current != "" {
+		pathSegments = append(pathSegments, current)
+	}
+
+	if len(pathSegments) < 2 {
+		return "", fmt.Errorf("unexpected URL format: %s", path)
+	}
+
+	// Return the last segment (the meeting ID)
+	return pathSegments[len(pathSegments)-1], nil
+}

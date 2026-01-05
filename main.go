@@ -159,6 +159,7 @@ func main() {
 	http.HandleFunc("/api/admin/slots", apiHandlers.GetAdminSlots)
 	http.HandleFunc("/api/admin/block", apiHandlers.BlockSlot)
 	http.HandleFunc("/api/admin/unblock", apiHandlers.UnblockSlot)
+	http.HandleFunc("/api/admin/cancel", apiHandlers.CancelBooking)
 	http.HandleFunc("/api/admin/debug-blocked", apiHandlers.DebugBlockedSlots)
 	http.HandleFunc("/api/admin/clear-all-blocked", apiHandlers.ClearAllBlockedSlots)
 

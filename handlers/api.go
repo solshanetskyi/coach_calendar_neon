@@ -16,9 +16,10 @@ type EmailSender interface {
 	SendBookingConfirmation(name, email string, slotTime time.Time, zoomLink string) error
 }
 
-// ZoomMeetingCreator interface for creating Zoom meetings
+// ZoomMeetingCreator interface for creating and deleting Zoom meetings
 type ZoomMeetingCreator interface {
 	CreateMeeting(name, email string, slotTime time.Time) (string, error)
+	DeleteMeeting(joinURL string) error
 }
 
 // Re-export types from main package
@@ -447,5 +448,78 @@ func (h *APIHandlers) ClearAllBlockedSlots(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":       "All blocked slots cleared",
 		"rows_affected": rowsAffected,
+	})
+}
+
+func (h *APIHandlers) CancelBooking(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		SlotTime string `json:"slot_time"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	slotTime, err := time.Parse(time.RFC3339, req.SlotTime)
+	if err != nil {
+		http.Error(w, "Invalid slot_time format", http.StatusBadRequest)
+		return
+	}
+
+	// Convert to UTC for database query
+	slotTimeUTC := slotTime.UTC()
+
+	// Get the booking details (including zoom_link) before deleting
+	var zoomLink sql.NullString
+	var name, email string
+	err = h.DB.QueryRow(
+		"SELECT name, email, zoom_link FROM bookings WHERE slot_time = $1",
+		slotTimeUTC,
+	).Scan(&name, &email, &zoomLink)
+
+	if err == sql.ErrNoRows {
+		http.Error(w, "Booking not found", http.StatusNotFound)
+		return
+	}
+
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		log.Printf("Error querying booking: %v", err)
+		return
+	}
+
+	// Delete the Zoom meeting if one exists
+	if zoomLink.Valid && zoomLink.String != "" && h.ZoomService != nil {
+		if err := h.ZoomService.DeleteMeeting(zoomLink.String); err != nil {
+			// Log the error but don't fail the booking cancellation
+			log.Printf("Warning: Failed to delete Zoom meeting for booking %s: %v", req.SlotTime, err)
+		}
+	}
+
+	// Delete the booking from database
+	result, err := h.DB.Exec("DELETE FROM bookings WHERE slot_time = $1", slotTimeUTC)
+	if err != nil {
+		http.Error(w, "Failed to cancel booking", http.StatusInternalServerError)
+		log.Printf("Error deleting booking: %v", err)
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		http.Error(w, "Booking not found", http.StatusNotFound)
+		return
+	}
+
+	log.Printf("Booking cancelled successfully: %s - %s (%s)", req.SlotTime, name, email)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Booking cancelled successfully",
 	})
 }

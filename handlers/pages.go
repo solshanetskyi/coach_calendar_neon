@@ -1126,6 +1126,15 @@ func AdminHandler(w http.ResponseWriter, r *http.Request) {
             background: #388e3c;
         }
 
+        .action-btn.cancel {
+            background: #ff9800;
+            color: white;
+        }
+
+        .action-btn.cancel:hover {
+            background: #f57c00;
+        }
+
         .action-btn:disabled {
             background: #ccc;
             cursor: not-allowed;
@@ -1541,6 +1550,8 @@ func AdminHandler(w http.ResponseWriter, r *http.Request) {
                     actionsHTML = '<button class="action-btn block" onclick="event.stopPropagation(); blockSlot(\'' + slot.slot_time + '\')">Заблокувати</button>';
                 } else if (slot.status === 'blocked') {
                     actionsHTML = '<button class="action-btn unblock" onclick="event.stopPropagation(); unblockSlot(\'' + slot.slot_time + '\')">Розблокувати</button>';
+                } else if (slot.status === 'booked') {
+                    actionsHTML = '<button class="action-btn cancel" onclick="event.stopPropagation(); cancelBooking(\'' + slot.slot_time + '\', \'' + slot.name + '\')">Скасувати</button>';
                 }
 
                 slotCard.innerHTML =
@@ -1597,6 +1608,33 @@ func AdminHandler(w http.ResponseWriter, r *http.Request) {
             } catch (error) {
                 console.error('Error unblocking slot:', error);
                 showMessage('Не вдалося розблокувати слот. Будь ласка, спробуйте ще раз.', 'error');
+            }
+        }
+
+        async function cancelBooking(slotTime, customerName) {
+            if (!confirm('Ви впевнені, що хочете скасувати бронювання для ' + customerName + '?\n\nЦе також видалить Zoom зустріч, якщо вона існує.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin/cancel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ slot_time: slotTime })
+                });
+
+                if (response.ok) {
+                    showMessage('Бронювання успішно скасовано', 'success');
+                    await loadSlots();
+                } else {
+                    const error = await response.text();
+                    showMessage('Не вдалося скасувати бронювання: ' + error, 'error');
+                }
+            } catch (error) {
+                console.error('Error cancelling booking:', error);
+                showMessage('Не вдалося скасувати бронювання. Будь ласка, спробуйте ще раз.', 'error');
             }
         }
 
