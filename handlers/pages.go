@@ -400,6 +400,120 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
             display: none; /* Hidden - only Burgundy theme available */
         }
 
+         /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            .calendar-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+            }
+
+            .day-cell {
+                padding: 15px 8px;
+                min-height: 70px;
+            }
+
+            .day-number {
+                font-size: 1.2rem;
+            }
+
+            .day-name {
+                font-size: 0.7rem;
+            }
+
+            .day-slots-count {
+                font-size: 0.65rem;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .coach-image-container {
+                width: 140px;
+                height: 140px;
+            }
+
+            .month-navigation {
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+
+            .month-title {
+                font-size: 1.2rem;
+            }
+
+            .nav-btn {
+                padding: 8px 15px;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .calendar-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+            }
+
+            .day-cell {
+                padding: 12px 5px;
+                min-height: 60px;
+            }
+
+            .day-number {
+                font-size: 1rem;
+            }
+
+            .day-name {
+                font-size: 0.6rem;
+            }
+
+            .day-slots-count {
+                font-size: 0.6rem;
+            }
+
+            h1 {
+                font-size: 1.2rem;
+            }
+
+            .coach-image-container {
+                width: 120px;
+                height: 120px;
+            }
+
+            .month-navigation {
+                padding: 10px;
+                margin-bottom: 15px;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .month-title {
+                font-size: 1rem;
+                text-align: center;
+            }
+
+            .nav-btn {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+                width: 100%;
+            }
+
+            .month-navigation {
+                display: grid;
+                grid-template-columns: 1fr 2fr 1fr;
+                gap: 8px;
+                align-items: center;
+            }
+
+            .month-title {
+                grid-column: 2;
+            }
+        }
+
     </style>
 </head>
 <body>
