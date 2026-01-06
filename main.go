@@ -157,6 +157,12 @@ func main() {
 	http.HandleFunc("/coach_image.jpg", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "coach_image.jpg")
 	})
+	http.HandleFunc("/coach_image_tiny.jpg", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "coach_image_tiny.jpg")
+	})
+	http.HandleFunc("/coach_image_hq.jpg", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "coach_image_hq.jpg")
+	})
 
 	// Register API routes
 	http.HandleFunc("/api/slots", apiHandlers.GetSlots)
