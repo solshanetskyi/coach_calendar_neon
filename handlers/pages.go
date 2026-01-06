@@ -585,8 +585,8 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
                 </div>
 
                 <div class="form-group">
-                    <label for="name">Ваше ім'я</label>
-                    <input type="text" id="name" placeholder="Введіть ваше повне ім'я" required>
+                    <label for="name">Ваше ім'я та прізвище</label>
+                    <input type="text" id="name" placeholder="Введіть ваше повне ім'я та прізвище" required>
                 </div>
 
                 <div class="form-group">
