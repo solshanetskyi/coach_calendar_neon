@@ -171,6 +171,9 @@ func generateAvailableSlots() []AvailableSlot {
 
 	now := time.Now().In(location)
 
+	// Calculate tomorrow's date at midnight (slots are only available starting tomorrow)
+	tomorrow := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, location)
+
 	// Only generate slots for January
 	// Find the next January (could be current year or next year)
 	currentYear := now.Year()
@@ -197,8 +200,8 @@ func generateAvailableSlots() []AvailableSlot {
 
 				slotTime := time.Date(januaryYear, time.January, day, hour, minute, 0, 0, location)
 
-				// Only include future slots
-				if slotTime.After(now) {
+				// Only include slots starting from tomorrow (no same-day bookings)
+				if slotTime.After(tomorrow) || slotTime.Equal(tomorrow) {
 					slots = append(slots, AvailableSlot{
 						SlotTime:  slotTime.Format(time.RFC3339),
 						Available: true,
