@@ -239,9 +239,13 @@ func (h *APIHandlers) GetAdminSlots(w http.ResponseWriter, r *http.Request) {
 	// Track which slot times we've already processed
 	processedSlots := make(map[int64]bool)
 
-	// Get booked slots with booking info
+	// Calculate today's start (midnight) for filtering
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	// Get booked slots with booking info (only from today onwards)
 	bookedMap := make(map[int64]Booking)
-	bookingRows, err := h.DB.Query("SELECT slot_time, name, email FROM bookings")
+	bookingRows, err := h.DB.Query("SELECT slot_time, name, email FROM bookings WHERE slot_time >= $1", todayStart)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		log.Printf("Error querying bookings: %v", err)
