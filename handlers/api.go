@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -235,6 +236,9 @@ func (h *APIHandlers) GetAdminSlots(w http.ResponseWriter, r *http.Request) {
 	slots := h.GenerateAvailableSlots()
 	adminSlots := make([]AdminSlot, 0, len(slots))
 
+	// Track which slot times we've already processed
+	processedSlots := make(map[int64]bool)
+
 	// Get booked slots with booking info
 	bookedMap := make(map[int64]Booking)
 	bookingRows, err := h.DB.Query("SELECT slot_time, name, email FROM bookings")
@@ -278,13 +282,21 @@ func (h *APIHandlers) GetAdminSlots(w http.ResponseWriter, r *http.Request) {
 		blockedMap[slotTime.Unix()] = true
 	}
 
-	// Build admin slots response
-	for _, slot := range slots {
+	// First, add today's booked slots that won't be in the generated slots
+	// (since generateAvailableSlots now excludes today for user booking)
+	for unixTime, booking := range bookedMap {
 		adminSlot := AdminSlot{
-			SlotTime: slot.SlotTime,
-			Status:   "available",
+			SlotTime: booking.SlotTime.Format(time.RFC3339),
+			Status:   "booked",
+			Name:     booking.Name,
+			Email:    booking.Email,
 		}
+		adminSlots = append(adminSlots, adminSlot)
+		processedSlots[unixTime] = true
+	}
 
+	// Build admin slots response from generated slots
+	for _, slot := range slots {
 		// Parse slot time for timezone-independent comparison
 		slotTime, err := time.Parse(time.RFC3339, slot.SlotTime)
 		if err != nil {
@@ -292,16 +304,31 @@ func (h *APIHandlers) GetAdminSlots(w http.ResponseWriter, r *http.Request) {
 		}
 
 		unixTime := slotTime.Unix()
-		if booking, ok := bookedMap[unixTime]; ok {
-			adminSlot.Status = "booked"
-			adminSlot.Name = booking.Name
-			adminSlot.Email = booking.Email
-		} else if blockedMap[unixTime] {
+
+		// Skip if already processed (from bookings)
+		if processedSlots[unixTime] {
+			continue
+		}
+
+		adminSlot := AdminSlot{
+			SlotTime: slot.SlotTime,
+			Status:   "available",
+		}
+
+		if blockedMap[unixTime] {
 			adminSlot.Status = "blocked"
 		}
 
 		adminSlots = append(adminSlots, adminSlot)
+		processedSlots[unixTime] = true
 	}
+
+	// Sort admin slots by time
+	sort.Slice(adminSlots, func(i, j int) bool {
+		timeI, _ := time.Parse(time.RFC3339, adminSlots[i].SlotTime)
+		timeJ, _ := time.Parse(time.RFC3339, adminSlots[j].SlotTime)
+		return timeI.Before(timeJ)
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(adminSlots)
