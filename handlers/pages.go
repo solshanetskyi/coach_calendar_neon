@@ -1000,6 +1000,11 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func AdminHandler(w http.ResponseWriter, r *http.Request) {
+	// Serve the new admin page HTML file
+	http.ServeFile(w, r, "handlers/admin_page.html")
+}
+
+func AdminHandlerOld(w http.ResponseWriter, r *http.Request) {
 	html := `
 <!DOCTYPE html>
 <html lang="uk">

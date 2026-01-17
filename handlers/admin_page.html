@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель адміністратора - Календар тренера</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Burgundy Theme */
+            --primary-start: #800020;
+            --primary-end: #5c0011;
+            --accent-color: #a0153e;
+            --gradient-bg: linear-gradient(135deg, #800020 0%, #5c0011 100%);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--gradient-bg);
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--gradient-bg);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .timezone-info {
+            font-size: 0.9rem;
+            opacity: 0.85;
+            margin: 10px 0;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .nav-link {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Tab Navigation */
+        .tabs {
+            display: flex;
+            background: #f5f5f5;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #666;
+            background: #f5f5f5;
+            border: none;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab:hover {
+            background: #e8e8e8;
+            color: #333;
+        }
+
+        .tab.active {
+            background: white;
+            color: var(--primary-start);
+            border-bottom: 3px solid var(--primary-start);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 40px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: var(--gradient-bg);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .stat-card p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 12px 24px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--primary-start);
+            background: #f0f4ff;
+        }
+
+        .filter-btn.active {
+            background: var(--primary-start);
+            color: white;
+            border-color: var(--primary-start);
+        }
+
+        .slots-container {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 30px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .slots-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .slot-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 20px;
+            transition: all 0.3s;
+        }
+
+        .slot-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .slot-card.available {
+            border-left: 4px solid #4caf50;
+        }
+
+        .slot-card.booked {
+            border-left: 4px solid #2196f3;
+            background: #e3f2fd;
+            cursor: pointer;
+        }
+
+        .slot-card.blocked {
+            border-left: 4px solid #f44336;
+            background: #ffebee;
+        }
+
+        .slot-info h4 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .slot-details {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .slot-detail {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.available {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .status-badge.booked {
+            background: #bbdefb;
+            color: #1565c0;
+        }
+
+        .status-badge.blocked {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+
+        .slot-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+        }
+
+        .action-btn.block {
+            background: #f44336;
+            color: white;
+        }
+
+        .action-btn.block:hover {
+            background: #d32f2f;
+        }
+
+        .action-btn.unblock {
+            background: #4caf50;
+            color: white;
+        }
+
+        .action-btn.unblock:hover {
+            background: #388e3c;
+        }
+
+        .action-btn.cancel {
+            background: #ff9800;
+            color: white;
+        }
+
+        .action-btn.cancel:hover {
+            background: #f57c00;
+        }
+
+        .action-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .message.active {
+            display: block;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 20px;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            background: var(--gradient-bg);
+            color: white;
+            padding: 25px 30px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.3s;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .modal-detail-row {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .modal-detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .modal-detail-label {
+            font-size: 0.85rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .modal-detail-value {
+            font-size: 1.1rem;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .modal-detail-value.large {
+            font-size: 1.3rem;
+            color: var(--primary-start);
+            font-weight: 600;
+        }
+
+        /* Clients Tab Styles */
+        .clients-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .btn-primary {
+            padding: 12px 24px;
+            background: var(--gradient-bg);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(128, 0, 32, 0.4);
+        }
+
+        .clients-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .client-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.3s;
+        }
+
+        .client-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .client-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+
+        .client-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .client-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .client-info {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .client-info-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            color: #666;
+        }
+
+        .client-notes {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #555;
+            white-space: pre-wrap;
+            margin-top: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-start);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-secondary {
+            padding: 12px 24px;
+            background: #e0e0e0;
+            color: #666;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .action-btn.edit {
+            background: #2196f3;
+            color: white;
+        }
+
+        .action-btn.edit:hover {
+            background: #1976d2;
+        }
+
+        .action-btn.delete {
+            background: #f44336;
+            color: white;
+        }
+
+        .action-btn.delete:hover {
+            background: #d32f2f;
+        }
+
+        .action-btn.create-appointment {
+            background: #4caf50;
+            color: white;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .action-btn.create-appointment:hover {
+            background: #388e3c;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Панель адміністратора</h1>
+            <p>Керування бронюваннями, клієнтами та доступністю слотів</p>
+            <div class="timezone-info" id="adminTimezoneInfo">Завантаження часового поясу...</div>
+            <a href="/" class="nav-link">← Повернутись до сторінки бронювання</a>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('calendar')">Календар</button>
+            <button class="tab" onclick="switchTab('clients')">Клієнти</button>
+        </div>
+
+        <!-- Calendar Tab -->
+        <div id="calendar-tab" class="tab-content active">
+            <div id="message" class="message"></div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <h3 id="totalSlots">-</h3>
+                    <p>Всього слотів</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="availableSlots">-</h3>
+                    <p>Доступні</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="bookedSlots">-</h3>
+                    <p>Заброньовані</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="blockedSlots">-</h3>
+                    <p>Заблоковані</p>
+                </div>
+            </div>
+
+            <div class="filters">
+                <button class="filter-btn active" onclick="filterSlots('all')">Всі слоти</button>
+                <button class="filter-btn" onclick="filterSlots('available')">Доступні</button>
+                <button class="filter-btn" onclick="filterSlots('booked')">Заброньовані</button>
+                <button class="filter-btn" onclick="filterSlots('blocked')">Заблоковані</button>
+            </div>
+
+            <div id="loading" class="loading">
+                Завантаження слотів...
+            </div>
+
+            <div id="slotsContainer" class="slots-container" style="display: none;">
+                <div id="slotsGrid" class="slots-grid"></div>
+            </div>
+        </div>
+
+        <!-- Clients Tab -->
+        <div id="clients-tab" class="tab-content">
+            <div id="clientsMessage" class="message"></div>
+
+            <div class="clients-header">
+                <h2>Список клієнтів</h2>
+                <button class="btn-primary" onclick="openClientModal()">+ Додати клієнта</button>
+            </div>
+
+            <div id="clientsLoading" class="loading">
+                Завантаження клієнтів...
+            </div>
+
+            <div id="clientsContainer" class="clients-grid" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Booking Details Modal -->
+    <div id="bookingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Деталі бронювання</h2>
+                <button class="close-btn" onclick="closeBookingModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-detail-row">
+                    <div class="modal-detail-label">Час зустрічі</div>
+                    <div class="modal-detail-value large" id="modalDateTime"></div>
+                </div>
+                <div class="modal-detail-row">
+                    <div class="modal-detail-label">Статус</div>
+                    <div class="modal-detail-value">
+                        <span class="status-badge booked">ЗАБРОНЬОВАНО</span>
+                    </div>
+                </div>
+                <div class="modal-detail-row">
+                    <div class="modal-detail-label">Ім'я клієнта</div>
+                    <div class="modal-detail-value" id="modalName"></div>
+                </div>
+                <div class="modal-detail-row">
+                    <div class="modal-detail-label">Email клієнта</div>
+                    <div class="modal-detail-value" id="modalEmail"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client Form Modal -->
+    <div id="clientModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="clientModalTitle">Додати клієнта</h2>
+                <button class="close-btn" onclick="closeClientModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="clientForm">
+                    <input type="hidden" id="clientId">
+                    <div class="form-group">
+                        <label for="clientFullName">Повне ім'я *</label>
+                        <input type="text" id="clientFullName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="clientEmail">Email</label>
+                        <input type="email" id="clientEmail">
+                    </div>
+                    <div class="form-group">
+                        <label for="clientPhone">Телефон</label>
+                        <input type="tel" id="clientPhone">
+                    </div>
+                    <div class="form-group">
+                        <label for="clientTelegram">Telegram ID</label>
+                        <input type="text" id="clientTelegram">
+                    </div>
+                    <div class="form-group">
+                        <label for="clientNotes">Нотатки</label>
+                        <textarea id="clientNotes"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeClientModal()">Скасувати</button>
+                        <button type="submit" class="btn-primary">Зберегти</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/admin.js"></script>
+</body>
+</html>

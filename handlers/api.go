@@ -52,6 +52,25 @@ type AdminSlot struct {
 
 type GenerateSlotsFn func() []AvailableSlot
 
+type Client struct {
+	ID          int       `json:"id"`
+	FullName    string    `json:"full_name"`
+	Email       string    `json:"email,omitempty"`
+	PhoneNumber string    `json:"phone_number,omitempty"`
+	TelegramID  string    `json:"telegram_id,omitempty"`
+	Notes       string    `json:"notes,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type ClientRequest struct {
+	FullName    string `json:"full_name"`
+	Email       string `json:"email,omitempty"`
+	PhoneNumber string `json:"phone_number,omitempty"`
+	TelegramID  string `json:"telegram_id,omitempty"`
+	Notes       string `json:"notes,omitempty"`
+}
+
 type APIHandlers struct {
 	DB                     *sql.DB
 	GenerateAvailableSlots GenerateSlotsFn
@@ -521,5 +540,197 @@ func (h *APIHandlers) CancelBooking(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Booking cancelled successfully",
+	})
+}
+
+// GetClients returns all clients
+func (h *APIHandlers) GetClients(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	rows, err := h.DB.Query(`
+		SELECT id, full_name, email, phone_number, telegram_id, notes, created_at, updated_at
+		FROM clients
+		ORDER BY full_name ASC
+	`)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		log.Printf("Error querying clients: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	clients := []Client{}
+	for rows.Next() {
+		var client Client
+		var email, phoneNumber, telegramID, notes sql.NullString
+		err := rows.Scan(
+			&client.ID,
+			&client.FullName,
+			&email,
+			&phoneNumber,
+			&telegramID,
+			&notes,
+			&client.CreatedAt,
+			&client.UpdatedAt,
+		)
+		if err != nil {
+			log.Printf("Error scanning client: %v", err)
+			continue
+		}
+
+		if email.Valid {
+			client.Email = email.String
+		}
+		if phoneNumber.Valid {
+			client.PhoneNumber = phoneNumber.String
+		}
+		if telegramID.Valid {
+			client.TelegramID = telegramID.String
+		}
+		if notes.Valid {
+			client.Notes = notes.String
+		}
+
+		clients = append(clients, client)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(clients)
+}
+
+// CreateClient creates a new client
+func (h *APIHandlers) CreateClient(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req ClientRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.FullName == "" {
+		http.Error(w, "full_name is required", http.StatusBadRequest)
+		return
+	}
+
+	var id int
+	err := h.DB.QueryRow(`
+		INSERT INTO clients (full_name, email, phone_number, telegram_id, notes)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id
+	`,
+		req.FullName,
+		sql.NullString{String: req.Email, Valid: req.Email != ""},
+		sql.NullString{String: req.PhoneNumber, Valid: req.PhoneNumber != ""},
+		sql.NullString{String: req.TelegramID, Valid: req.TelegramID != ""},
+		sql.NullString{String: req.Notes, Valid: req.Notes != ""},
+	).Scan(&id)
+
+	if err != nil {
+		http.Error(w, "Failed to create client", http.StatusInternalServerError)
+		log.Printf("Error creating client: %v", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Client created successfully",
+		"id":      id,
+	})
+}
+
+// UpdateClient updates an existing client
+func (h *APIHandlers) UpdateClient(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get client ID from query parameter
+	clientID := r.URL.Query().Get("id")
+	if clientID == "" {
+		http.Error(w, "id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	var req ClientRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.FullName == "" {
+		http.Error(w, "full_name is required", http.StatusBadRequest)
+		return
+	}
+
+	result, err := h.DB.Exec(`
+		UPDATE clients
+		SET full_name = $1, email = $2, phone_number = $3, telegram_id = $4, notes = $5, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $6
+	`,
+		req.FullName,
+		sql.NullString{String: req.Email, Valid: req.Email != ""},
+		sql.NullString{String: req.PhoneNumber, Valid: req.PhoneNumber != ""},
+		sql.NullString{String: req.TelegramID, Valid: req.TelegramID != ""},
+		sql.NullString{String: req.Notes, Valid: req.Notes != ""},
+		clientID,
+	)
+
+	if err != nil {
+		http.Error(w, "Failed to update client", http.StatusInternalServerError)
+		log.Printf("Error updating client: %v", err)
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		http.Error(w, "Client not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Client updated successfully",
+	})
+}
+
+// DeleteClient deletes a client
+func (h *APIHandlers) DeleteClient(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get client ID from query parameter
+	clientID := r.URL.Query().Get("id")
+	if clientID == "" {
+		http.Error(w, "id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	result, err := h.DB.Exec("DELETE FROM clients WHERE id = $1", clientID)
+	if err != nil {
+		http.Error(w, "Failed to delete client", http.StatusInternalServerError)
+		log.Printf("Error deleting client: %v", err)
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		http.Error(w, "Client not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Client deleted successfully",
 	})
 }

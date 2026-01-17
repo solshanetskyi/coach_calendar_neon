@@ -163,6 +163,10 @@ func main() {
 	http.HandleFunc("/coach_image_hq.jpg", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "coach_image_hq.jpg")
 	})
+	http.HandleFunc("/admin.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript")
+		http.ServeFile(w, r, "admin.js")
+	})
 
 	// Register API routes
 	http.HandleFunc("/api/slots", apiHandlers.GetSlots)
@@ -173,6 +177,22 @@ func main() {
 	http.HandleFunc("/api/admin/cancel", apiHandlers.CancelBooking)
 	http.HandleFunc("/api/admin/debug-blocked", apiHandlers.DebugBlockedSlots)
 	http.HandleFunc("/api/admin/clear-all-blocked", apiHandlers.ClearAllBlockedSlots)
+
+	// Client management API routes
+	http.HandleFunc("/api/admin/clients", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			apiHandlers.GetClients(w, r)
+		case http.MethodPost:
+			apiHandlers.CreateClient(w, r)
+		case http.MethodPut:
+			apiHandlers.UpdateClient(w, r)
+		case http.MethodDelete:
+			apiHandlers.DeleteClient(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	log.Printf("Server starting on port %s", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {

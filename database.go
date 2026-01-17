@@ -135,6 +135,19 @@ func initDB() error {
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX IF NOT EXISTS idx_blocked_slot_time ON blocked_slots(slot_time);
+
+	CREATE TABLE IF NOT EXISTS clients (
+		id SERIAL PRIMARY KEY,
+		full_name TEXT NOT NULL,
+		email TEXT,
+		phone_number TEXT,
+		telegram_id TEXT,
+		notes TEXT,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX IF NOT EXISTS idx_client_name ON clients(full_name);
+	CREATE INDEX IF NOT EXISTS idx_client_email ON clients(email);
 	`
 
 	_, err = db.Exec(createTableSQL)
