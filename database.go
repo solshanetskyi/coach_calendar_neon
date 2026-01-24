@@ -174,38 +174,54 @@ func generateAvailableSlots() []AvailableSlot {
 	// Calculate tomorrow's date at midnight (slots are only available starting tomorrow)
 	tomorrow := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, location)
 
-	// Only generate slots for January
-	// Find the next January (could be current year or next year)
+	// Generate slots for January and February
+	// Find the appropriate year based on current month
 	currentYear := now.Year()
 	currentMonth := now.Month()
 
-	var januaryYear int
-	if currentMonth == time.January {
-		// We're in January, use current year
-		januaryYear = currentYear
+	var targetYear int
+	if currentMonth <= time.February {
+		// We're in January or February, use current year
+		targetYear = currentYear
 	} else {
-		// We're past January, use next year
-		januaryYear = currentYear + 1
+		// We're past February, use next year
+		targetYear = currentYear + 1
 	}
 
-	// Generate slots for all days in January
-	for day := 1; day <= 31; day++ {
-		// Generate 30-minute slots from 9 AM to 8 PM (Amsterdam time)
-		for hour := 9; hour <= 20; hour++ {
-			for minute := 0; minute < 60; minute += 30 {
-				// Skip the 30-minute slot at 8:30 PM to keep end time at 8 PM
-				if hour == 20 && minute == 30 {
-					continue
-				}
+	// Define months to generate slots for
+	months := []struct {
+		month time.Month
+		days  int
+	}{
+		{time.January, 31},
+		{time.February, 28}, // Will be adjusted for leap year
+	}
 
-				slotTime := time.Date(januaryYear, time.January, day, hour, minute, 0, 0, location)
+	// Adjust February days for leap year
+	if targetYear%4 == 0 && (targetYear%100 != 0 || targetYear%400 == 0) {
+		months[1].days = 29
+	}
 
-				// Only include slots starting from tomorrow (no same-day bookings)
-				if slotTime.After(tomorrow) || slotTime.Equal(tomorrow) {
-					slots = append(slots, AvailableSlot{
-						SlotTime:  slotTime.Format(time.RFC3339),
-						Available: true,
-					})
+	// Generate slots for each month
+	for _, m := range months {
+		for day := 1; day <= m.days; day++ {
+			// Generate 30-minute slots from 9 AM to 8 PM (Amsterdam time)
+			for hour := 9; hour <= 20; hour++ {
+				for minute := 0; minute < 60; minute += 30 {
+					// Skip the 30-minute slot at 8:30 PM to keep end time at 8 PM
+					if hour == 20 && minute == 30 {
+						continue
+					}
+
+					slotTime := time.Date(targetYear, m.month, day, hour, minute, 0, 0, location)
+
+					// Only include slots starting from tomorrow (no same-day bookings)
+					if slotTime.After(tomorrow) || slotTime.Equal(tomorrow) {
+						slots = append(slots, AvailableSlot{
+							SlotTime:  slotTime.Format(time.RFC3339),
+							Available: true,
+						})
+					}
 				}
 			}
 		}
