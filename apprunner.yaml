@@ -1,5 +1,5 @@
 version: 1.0
-runtime: go1.21
+runtime: go1.18
 build:
   commands:
     build:
