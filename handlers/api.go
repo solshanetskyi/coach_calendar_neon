@@ -23,6 +23,18 @@ type ZoomMeetingCreator interface {
 	DeleteMeeting(joinURL string) error
 }
 
+// BusySlot represents a busy time period from Google Calendar
+type BusySlot struct {
+	Start time.Time
+	End   time.Time
+}
+
+// GoogleCalendarChecker interface for checking Google Calendar availability
+type GoogleCalendarChecker interface {
+	GetBusySlots(startTime, endTime time.Time) ([]BusySlot, error)
+	IsSlotBusy(slotTime time.Time, durationMinutes int, busySlots []BusySlot) bool
+}
+
 // Re-export types from main package
 type Booking struct {
 	ID        int       `json:"id"`
@@ -77,14 +89,16 @@ type APIHandlers struct {
 	GenerateAvailableSlots GenerateSlotsFn
 	EmailService           EmailSender
 	ZoomService            ZoomMeetingCreator
+	GoogleCalendar         GoogleCalendarChecker
 }
 
-func NewAPIHandlers(db *sql.DB, generateSlotsFn GenerateSlotsFn, emailService EmailSender, zoomService ZoomMeetingCreator) *APIHandlers {
+func NewAPIHandlers(db *sql.DB, generateSlotsFn GenerateSlotsFn, emailService EmailSender, zoomService ZoomMeetingCreator, googleCalendar GoogleCalendarChecker) *APIHandlers {
 	return &APIHandlers{
 		DB:                     db,
 		GenerateAvailableSlots: generateSlotsFn,
 		EmailService:           emailService,
 		ZoomService:            zoomService,
+		GoogleCalendar:         googleCalendar,
 	}
 }
 
@@ -135,7 +149,37 @@ func (h *APIHandlers) GetSlots(w http.ResponseWriter, r *http.Request) {
 		blockedSlots[slotTime.Unix()] = true
 	}
 
-	// Mark booked and blocked slots as unavailable
+	// Get busy slots from Google Calendar (if enabled)
+	var googleBusySlots []BusySlot
+	if h.GoogleCalendar != nil && len(slots) > 0 {
+		// Calculate the time range for Google Calendar query
+		var minTime, maxTime time.Time
+		for _, slot := range slots {
+			slotTime, err := time.Parse(time.RFC3339, slot.SlotTime)
+			if err != nil {
+				continue
+			}
+			if minTime.IsZero() || slotTime.Before(minTime) {
+				minTime = slotTime
+			}
+			if maxTime.IsZero() || slotTime.After(maxTime) {
+				maxTime = slotTime
+			}
+		}
+
+		if !minTime.IsZero() && !maxTime.IsZero() {
+			// Add some buffer to the end time
+			maxTime = maxTime.Add(time.Hour)
+			busySlots, err := h.GoogleCalendar.GetBusySlots(minTime, maxTime)
+			if err != nil {
+				log.Printf("Warning: Failed to get Google Calendar busy slots: %v", err)
+			} else {
+				googleBusySlots = busySlots
+			}
+		}
+	}
+
+	// Mark booked, blocked, and Google Calendar busy slots as unavailable
 	for i := range slots {
 		// Parse slot time to compare as Unix timestamp
 		slotTime, err := time.Parse(time.RFC3339, slots[i].SlotTime)
@@ -143,8 +187,18 @@ func (h *APIHandlers) GetSlots(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		unixTime := slotTime.Unix()
+
+		// Check database bookings and blocks
 		if bookedSlots[unixTime] || blockedSlots[unixTime] {
 			slots[i].Available = false
+			continue
+		}
+
+		// Check Google Calendar busy slots (30-minute duration)
+		if h.GoogleCalendar != nil && len(googleBusySlots) > 0 {
+			if h.GoogleCalendar.IsSlotBusy(slotTime, 30, googleBusySlots) {
+				slots[i].Available = false
+			}
 		}
 	}
 

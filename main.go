@@ -51,6 +51,12 @@ func printConfigSummary() {
 	log.Printf("ZOOM_CLIENT_ID: %s", maskSecret(os.Getenv("ZOOM_CLIENT_ID")))
 	log.Printf("ZOOM_CLIENT_SECRET: %s", maskSecret(os.Getenv("ZOOM_CLIENT_SECRET")))
 
+	// Google Calendar configuration
+	log.Printf("GOOGLE_CALENDAR_ENABLED: %s", getEnvOrDefault("GOOGLE_CALENDAR_ENABLED", "<not set>"))
+	log.Printf("GOOGLE_CALENDAR_ID: %s", getEnvOrDefault("GOOGLE_CALENDAR_ID", "<not set>"))
+	log.Printf("GOOGLE_SERVICE_ACCOUNT_FILE: %s", getEnvOrDefault("GOOGLE_SERVICE_ACCOUNT_FILE", "<not set>"))
+	log.Printf("GOOGLE_SERVICE_ACCOUNT_JSON: %s", maskSecret(os.Getenv("GOOGLE_SERVICE_ACCOUNT_JSON")))
+
 	log.Println("========================================")
 }
 
@@ -140,13 +146,24 @@ func main() {
 	// Initialize Zoom service
 	zoomService := NewZoomService()
 
+	// Initialize Google Calendar service
+	googleCalendarService, err := NewGoogleCalendarService()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize Google Calendar service: %v", err)
+	} else if googleCalendarService != nil {
+		// Validate credentials on startup
+		if err := googleCalendarService.ValidateCredentials(); err != nil {
+			log.Printf("Warning: Google Calendar validation failed: %v", err)
+		}
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
 	// Initialize API handlers
-	apiHandlers := handlers.NewAPIHandlers(db, generateSlotsForHandlers, emailService, zoomService)
+	apiHandlers := handlers.NewAPIHandlers(db, generateSlotsForHandlers, emailService, zoomService, googleCalendarService)
 
 	// Register page routes
 	http.HandleFunc("/", handlers.HomeHandler)
