@@ -125,9 +125,18 @@ func initDB() error {
 		email TEXT NOT NULL,
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		duration INTEGER NOT NULL DEFAULT 30,
-		zoom_link TEXT
+		zoom_link TEXT,
+		phone TEXT
 	);
 	CREATE INDEX IF NOT EXISTS idx_slot_time ON bookings(slot_time);
+
+	-- Add phone column if it doesn't exist (for existing databases)
+	DO $$
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bookings' AND column_name = 'phone') THEN
+			ALTER TABLE bookings ADD COLUMN phone TEXT;
+		END IF;
+	END $$;
 
 	CREATE TABLE IF NOT EXISTS blocked_slots (
 		id SERIAL PRIMARY KEY,

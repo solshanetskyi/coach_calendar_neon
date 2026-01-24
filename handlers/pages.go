@@ -594,6 +594,11 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
                     <input type="email" id="email" placeholder="your.email@example.com" required>
                 </div>
 
+                <div class="form-group">
+                    <label for="phone">Ваш телефон</label>
+                    <input type="tel" id="phone" placeholder="+380 XX XXX XX XX">
+                </div>
+
                 <button class="btn btn-primary" onclick="confirmBooking()">Підтвердити бронювання</button>
                 <button class="btn btn-secondary" onclick="cancelBooking()">Скасувати</button>
             </div>
@@ -893,6 +898,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
             document.getElementById('bookingForm').classList.remove('active');
             document.getElementById('name').value = '';
             document.getElementById('email').value = '';
+            document.getElementById('phone').value = '';
 
             if (selectedDay) {
                 document.getElementById('timeSlotsPanel').classList.add('active');
@@ -904,9 +910,10 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
         async function confirmBooking() {
             const name = document.getElementById('name').value.trim();
             const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
 
             if (!name || !email) {
-                showMessage('Будь ласка, заповніть всі поля', 'error');
+                showMessage('Будь ласка, заповніть всі обов\'язкові поля', 'error');
                 return;
             }
 
@@ -924,7 +931,8 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
                     body: JSON.stringify({
                         slot_time: selectedSlot.slot_time,
                         name: name,
-                        email: email
+                        email: email,
+                        phone: phone
                     })
                 });
 

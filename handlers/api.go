@@ -41,6 +41,7 @@ type Booking struct {
 	SlotTime  time.Time `json:"slot_time"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
+	Phone     string    `json:"phone,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	ZoomLink  string    `json:"zoom_link,omitempty"`
 }
@@ -49,6 +50,7 @@ type BookingRequest struct {
 	SlotTime string `json:"slot_time"`
 	Name     string `json:"name"`
 	Email    string `json:"email"`
+	Phone    string `json:"phone,omitempty"`
 }
 
 type AvailableSlot struct {
@@ -61,6 +63,7 @@ type AdminSlot struct {
 	Status   string `json:"status"` // "available", "booked", "blocked"
 	Name     string `json:"name,omitempty"`
 	Email    string `json:"email,omitempty"`
+	Phone    string `json:"phone,omitempty"`
 }
 
 type GenerateSlotsFn func() []AvailableSlot
@@ -249,10 +252,10 @@ func (h *APIHandlers) CreateBooking(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Insert booking into database with zoom_link (store in UTC)
+	// Insert booking into database with zoom_link and phone (store in UTC)
 	_, err = h.DB.Exec(
-		"INSERT INTO bookings (slot_time, name, email, zoom_link) VALUES ($1, $2, $3, $4)",
-		slotTimeUTC, req.Name, req.Email, sql.NullString{String: zoomLink, Valid: zoomLink != ""},
+		"INSERT INTO bookings (slot_time, name, email, zoom_link, phone) VALUES ($1, $2, $3, $4, $5)",
+		slotTimeUTC, req.Name, req.Email, sql.NullString{String: zoomLink, Valid: zoomLink != ""}, sql.NullString{String: req.Phone, Valid: req.Phone != ""},
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value") || strings.Contains(err.Error(), "unique constraint") {
@@ -299,7 +302,7 @@ func (h *APIHandlers) GetAdminSlots(w http.ResponseWriter, r *http.Request) {
 
 	// Get booked slots with booking info (only from today onwards)
 	bookedMap := make(map[int64]Booking)
-	bookingRows, err := h.DB.Query("SELECT slot_time, name, email FROM bookings WHERE slot_time >= $1", todayStart)
+	bookingRows, err := h.DB.Query("SELECT slot_time, name, email, phone FROM bookings WHERE slot_time >= $1", todayStart)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		log.Printf("Error querying bookings: %v", err)
@@ -310,15 +313,20 @@ func (h *APIHandlers) GetAdminSlots(w http.ResponseWriter, r *http.Request) {
 	for bookingRows.Next() {
 		var slotTime time.Time
 		var name, email string
-		if err := bookingRows.Scan(&slotTime, &name, &email); err != nil {
+		var phone sql.NullString
+		if err := bookingRows.Scan(&slotTime, &name, &email, &phone); err != nil {
 			continue
 		}
 		// Use Unix timestamp for timezone-independent comparison
-		bookedMap[slotTime.Unix()] = Booking{
+		booking := Booking{
 			SlotTime: slotTime,
 			Name:     name,
 			Email:    email,
 		}
+		if phone.Valid {
+			booking.Phone = phone.String
+		}
+		bookedMap[slotTime.Unix()] = booking
 	}
 
 	// Get blocked slots
@@ -348,6 +356,7 @@ func (h *APIHandlers) GetAdminSlots(w http.ResponseWriter, r *http.Request) {
 			Status:   "booked",
 			Name:     booking.Name,
 			Email:    booking.Email,
+			Phone:    booking.Phone,
 		}
 		adminSlots = append(adminSlots, adminSlot)
 		processedSlots[unixTime] = true

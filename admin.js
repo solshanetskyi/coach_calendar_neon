@@ -131,11 +131,12 @@ function renderSlots() {
         } else if (slot.status === 'blocked') {
             actionsHTML = '<button class="action-btn unblock" onclick="event.stopPropagation(); unblockSlot(\'' + slot.slot_time + '\')">Розблокувати</button>';
         } else if (slot.status === 'booked') {
-            // Escape single quotes in name and email for use in onclick
+            // Escape single quotes in name, email, and phone for use in onclick
             const escapedName = (slot.name || '').replace(/'/g, "\\'");
             const escapedEmail = (slot.email || '').replace(/'/g, "\\'");
+            const escapedPhone = (slot.phone || '').replace(/'/g, "\\'");
             actionsHTML = '<button class="action-btn cancel" onclick="event.stopPropagation(); cancelBooking(\'' + slot.slot_time + '\', \'' + escapedName + '\')">Скасувати</button>';
-            actionsHTML += '<button class="action-btn edit" onclick="event.stopPropagation(); createClientFromBooking(\'' + escapedName + '\', \'' + escapedEmail + '\')">Створити клієнта</button>';
+            actionsHTML += '<button class="action-btn edit" onclick="event.stopPropagation(); createClientFromBooking(\'' + escapedName + '\', \'' + escapedEmail + '\', \'' + escapedPhone + '\')">Створити клієнта</button>';
         }
 
         slotCard.innerHTML =
@@ -153,6 +154,7 @@ function openBookingModal(slot) {
     document.getElementById('modalDateTime').textContent = formatDateTime(slot.slot_time);
     document.getElementById('modalName').textContent = slot.name || 'N/A';
     document.getElementById('modalEmail').textContent = slot.email || 'N/A';
+    document.getElementById('modalPhone').textContent = slot.phone || 'Не вказано';
     document.getElementById('bookingModal').classList.add('active');
 }
 
@@ -372,11 +374,12 @@ function editClient(clientId) {
     openClientModal(clientId);
 }
 
-function createClientFromBooking(name, email) {
+function createClientFromBooking(name, email, phone) {
     // Open the client modal with pre-filled data from the booking
     openClientModal(null, {
         full_name: name,
-        email: email
+        email: email,
+        phone_number: phone
     });
 
     // Show a message to indicate the form is pre-filled
