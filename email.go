@@ -311,3 +311,162 @@ func (e *EmailService) sendViaSMTP(toEmail, subject, htmlBody, textBody, icalCon
 	log.Printf("Confirmation email sent successfully via SMTP to %s", toEmail)
 	return nil
 }
+
+// SendBookingNotificationToOwner sends a notification email to the calendar owner about a new booking
+func (e *EmailService) SendBookingNotificationToOwner(clientName, clientEmail, clientPhone string, slotTime time.Time, zoomLink string) error {
+	if !e.Enabled {
+		log.Printf("Email service disabled - skipping owner notification")
+		return nil
+	}
+
+	// Send to the calendar owner (SMTP_FROM)
+	ownerEmail := e.From
+
+	// Convert to CET timezone for display
+	cetLocation, err := time.LoadLocation("Europe/Amsterdam")
+	if err != nil {
+		log.Printf("Warning: Could not load CET timezone, using UTC: %v", err)
+		cetLocation = time.UTC
+	}
+	slotTimeCET := slotTime.In(cetLocation)
+
+	// Format the booking time in CET
+	formattedTime := slotTimeCET.Format("Monday, January 2, 2006 at 15:04 CET")
+
+	// Create email subject
+	subject := fmt.Sprintf("Нове бронювання: %s - %s", clientName, slotTimeCET.Format("02.01.2006 15:04"))
+
+	// Phone info
+	phoneInfo := "Не вказано"
+	if clientPhone != "" {
+		phoneInfo = clientPhone
+	}
+
+	// Zoom link info
+	zoomInfo := ""
+	if zoomLink != "" {
+		zoomInfo = fmt.Sprintf(`
+            <div class="detail-row">🎥 <strong>Zoom:</strong> <a href="%s">%s</a></div>`, zoomLink, zoomLink)
+	}
+
+	// HTML body
+	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #2e7d32 0%%, #1b5e20 100%%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+        .details { background: white; padding: 20px; border-left: 4px solid #2e7d32; margin: 20px 0; }
+        .detail-row { margin: 10px 0; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Нове бронювання!</h1>
+        </div>
+        <div class="content">
+            <p>Отримано нове бронювання на консультацію.</p>
+
+            <div class="details">
+                <h3>Деталі бронювання:</h3>
+                <div class="detail-row">📅 <strong>Дата і час:</strong> %s</div>
+                <div class="detail-row">⏱️ <strong>Тривалість:</strong> 30 хвилин</div>
+                <div class="detail-row">👤 <strong>Клієнт:</strong> %s</div>
+                <div class="detail-row">📧 <strong>Email:</strong> <a href="mailto:%s">%s</a></div>
+                <div class="detail-row">📱 <strong>Телефон:</strong> %s</div>%s
+            </div>
+
+            <p style="margin-top: 20px; color: #666;">
+                Клієнту надіслано підтвердження на email.
+            </p>
+        </div>
+        <div class="footer">
+            Coach Calendar - Автоматичне сповіщення
+        </div>
+    </div>
+</body>
+</html>`, formattedTime, clientName, clientEmail, clientEmail, phoneInfo, zoomInfo)
+
+	// Plain text version
+	zoomText := ""
+	if zoomLink != "" {
+		zoomText = fmt.Sprintf("🎥 Zoom: %s\n", zoomLink)
+	}
+
+	textBody := fmt.Sprintf(`🎉 Нове бронювання!
+
+Отримано нове бронювання на консультацію.
+
+Деталі бронювання:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 Дата і час: %s
+⏱️ Тривалість: 30 хвилин
+👤 Клієнт: %s
+📧 Email: %s
+📱 Телефон: %s
+%s
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Клієнту надіслано підтвердження на email.
+
+--
+Coach Calendar - Автоматичне сповіщення
+`, formattedTime, clientName, clientEmail, phoneInfo, zoomText)
+
+	// Send via SMTP (no calendar attachment for owner notification)
+	return e.sendSimpleEmail(ownerEmail, subject, htmlBody, textBody)
+}
+
+// sendSimpleEmail sends a simple email without calendar attachment
+func (e *EmailService) sendSimpleEmail(toEmail, subject, htmlBody, textBody string) error {
+	// Create boundary for multipart message
+	boundary := fmt.Sprintf("boundary_%d", rand.Int63())
+
+	// Build multipart email with HTML and text
+	var message strings.Builder
+	encodedFromName := base64.StdEncoding.EncodeToString([]byte(e.FromName))
+	message.WriteString(fmt.Sprintf("From: =?UTF-8?B?%s?= <%s>\r\n", encodedFromName, e.From))
+	message.WriteString(fmt.Sprintf("To: %s\r\n", toEmail))
+	message.WriteString(fmt.Sprintf("Subject: =?UTF-8?B?%s?=\r\n", base64.StdEncoding.EncodeToString([]byte(subject))))
+	message.WriteString("MIME-Version: 1.0\r\n")
+	message.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n", boundary))
+	message.WriteString("\r\n")
+
+	// Plain text version
+	message.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	message.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+	message.WriteString("Content-Transfer-Encoding: base64\r\n")
+	message.WriteString("\r\n")
+	message.WriteString(base64.StdEncoding.EncodeToString([]byte(textBody)))
+	message.WriteString("\r\n\r\n")
+
+	// HTML version
+	message.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	message.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
+	message.WriteString("Content-Transfer-Encoding: base64\r\n")
+	message.WriteString("\r\n")
+	message.WriteString(base64.StdEncoding.EncodeToString([]byte(htmlBody)))
+	message.WriteString("\r\n\r\n")
+
+	// End multipart
+	message.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+
+	// Set up authentication
+	auth := smtp.PlainAuth("", e.From, e.Password, e.SMTPHost)
+
+	// Send the email
+	addr := fmt.Sprintf("%s:%s", e.SMTPHost, e.SMTPPort)
+	err := smtp.SendMail(addr, auth, e.From, []string{toEmail}, []byte(message.String()))
+	if err != nil {
+		log.Printf("Failed to send email via SMTP to %s: %v", toEmail, err)
+		return fmt.Errorf("failed to send email via SMTP: %w", err)
+	}
+
+	log.Printf("Email sent successfully via SMTP to %s", toEmail)
+	return nil
+}

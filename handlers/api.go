@@ -15,6 +15,7 @@ import (
 // EmailSender interface for sending emails
 type EmailSender interface {
 	SendBookingConfirmation(name, email string, slotTime time.Time, zoomLink string) error
+	SendBookingNotificationToOwner(clientName, clientEmail, clientPhone string, slotTime time.Time, zoomLink string) error
 }
 
 // ZoomMeetingCreator interface for creating and deleting Zoom meetings
@@ -294,13 +295,22 @@ func (h *APIHandlers) CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send confirmation email if enabled
+	// Send confirmation email to client if enabled
 	sendConfirmationEmail := strings.ToLower(os.Getenv("SEND_CONFIRMATION_EMAIL"))
 	if (sendConfirmationEmail == "yes" || sendConfirmationEmail == "true") && h.EmailService != nil {
 		err = h.EmailService.SendBookingConfirmation(req.Name, req.Email, slotTime, zoomLink)
 		if err != nil {
 			// Log the error but don't fail the booking
 			log.Printf("Warning: Booking created but failed to send confirmation email: %v", err)
+		}
+	}
+
+	// Send notification email to calendar owner
+	if h.EmailService != nil {
+		err = h.EmailService.SendBookingNotificationToOwner(req.Name, req.Email, req.Phone, slotTime, zoomLink)
+		if err != nil {
+			// Log the error but don't fail the booking
+			log.Printf("Warning: Failed to send booking notification to owner: %v", err)
 		}
 	}
 
