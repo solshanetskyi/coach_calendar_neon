@@ -35,10 +35,7 @@ func main() {
 
 	if *help {
 		fmt.Println("Block Slots Script for Coach Calendar")
-		fmt.Println("\nBlocks time slots based on day of week:")
-		fmt.Println("  - Monday-Thursday: 11:30-15:00 Amsterdam time (lunch break)")
-		fmt.Println("  - Sunday: ALL slots 9:00-20:00 (entire day)")
-		fmt.Println("  - Friday-Saturday: No blocking")
+		fmt.Println("\nBlocks all time slots on Sundays (9:00-20:00 Amsterdam time)")
 		fmt.Println("\nUsage:")
 		fmt.Println("  go run block_slots.go [options]")
 		fmt.Println("\nOptions:")
@@ -75,28 +72,16 @@ func main() {
 		currentDate := startDate.AddDate(0, 0, day)
 		weekday := currentDate.Weekday()
 
-		// Block specific days:
-		// - Monday-Thursday: 11:30 to 15:00
-		// - Sunday: ALL slots (9:00 to 20:00)
-
-		var startHour, startMinute, endHour, endMinute int
-
-		if weekday == time.Sunday {
-			// Sunday: Block ALL slots (9:00 AM to 8:00 PM)
-			startHour = 9
-			startMinute = 0
-			endHour = 20
-			endMinute = 0
-		} else if weekday >= time.Monday && weekday <= time.Thursday {
-			// Monday-Thursday: Block lunch time (11:30 to 15:00)
-			startHour = 11
-			startMinute = 30
-			endHour = 15
-			endMinute = 0
-		} else {
-			// Friday, Saturday: Skip (no blocking)
+		// Only block Sundays
+		if weekday != time.Sunday {
 			continue
 		}
+
+		// Sunday: Block ALL slots (9:00 AM to 8:00 PM)
+		startHour := 9
+		startMinute := 0
+		endHour := 20
+		endMinute := 0
 
 		// Generate slots for this day
 		currentSlot := time.Date(currentDate.Year(), currentDate.Month(), currentDate.Day(),
@@ -118,7 +103,6 @@ func main() {
 	log.Println("========================================")
 	log.Printf("Blocking slots for %d days ahead", *daysAhead)
 	log.Println("Blocking schedule:")
-	log.Println("  - Monday-Thursday: 11:30-15:00 (lunch break)")
 	log.Println("  - Sunday: 9:00-20:00 (entire day)")
 	log.Printf("Total slots to block: %d", len(slotsToBlock))
 	if *dryRun {

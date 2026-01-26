@@ -241,7 +241,33 @@ func (h *APIHandlers) CreateBooking(w http.ResponseWriter, r *http.Request) {
 	// Convert to UTC for consistent storage
 	slotTimeUTC := slotTime.UTC()
 
-	// Create Zoom meeting first (before database insert) if enabled
+	// Check if slot is already booked BEFORE creating Zoom meeting
+	var existingCount int
+	err = h.DB.QueryRow("SELECT COUNT(*) FROM bookings WHERE slot_time = $1", slotTimeUTC).Scan(&existingCount)
+	if err != nil {
+		http.Error(w, "Failed to check slot availability", http.StatusInternalServerError)
+		log.Printf("Error checking slot availability: %v", err)
+		return
+	}
+	if existingCount > 0 {
+		http.Error(w, "Slot already booked", http.StatusConflict)
+		return
+	}
+
+	// Check if slot is blocked
+	var blockedCount int
+	err = h.DB.QueryRow("SELECT COUNT(*) FROM blocked_slots WHERE slot_time = $1", slotTimeUTC).Scan(&blockedCount)
+	if err != nil {
+		http.Error(w, "Failed to check slot availability", http.StatusInternalServerError)
+		log.Printf("Error checking blocked slots: %v", err)
+		return
+	}
+	if blockedCount > 0 {
+		http.Error(w, "Slot is not available", http.StatusConflict)
+		return
+	}
+
+	// Create Zoom meeting AFTER confirming slot is available
 	var zoomLink string
 	createZoomMeeting := strings.ToLower(os.Getenv("CREATE_ZOOM_MEETING"))
 	if (createZoomMeeting == "yes" || createZoomMeeting == "true") && h.ZoomService != nil {
@@ -259,6 +285,7 @@ func (h *APIHandlers) CreateBooking(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value") || strings.Contains(err.Error(), "unique constraint") {
+			// Race condition: another request booked the slot between our check and insert
 			http.Error(w, "Slot already booked", http.StatusConflict)
 		} else {
 			http.Error(w, "Failed to create booking", http.StatusInternalServerError)
