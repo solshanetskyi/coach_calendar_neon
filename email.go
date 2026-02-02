@@ -123,7 +123,7 @@ END:VCALENDAR`, eventID, now, startUTC, endUTC, name, name, email)
 	return ical
 }
 
-func (e *EmailService) SendBookingConfirmation(name, email string, slotTime time.Time, zoomLink string) error {
+func (e *EmailService) SendBookingConfirmation(name, email string, slotTime time.Time, zoomLink string, duration int) error {
 	if !e.Enabled {
 		log.Printf("Email service disabled - skipping confirmation email to %s", email)
 		return nil
@@ -135,8 +135,17 @@ func (e *EmailService) SendBookingConfirmation(name, email string, slotTime time
 	// Generate Google Calendar URL
 	googleCalURL := generateGoogleCalendarURL(slotTime)
 
-	// Create email subject and body
-	subject := "Підтвердження онлайн-запису - безкоштовна консультація з Христиною Івасюк"
+	// Set subject and duration text based on mode
+	var subject, durationText, headerSubtitle string
+	if duration == 60 {
+		subject = "Підтвердження онлайн-запису - консультація з Христиною Івасюк"
+		durationText = "60 хвилин"
+		headerSubtitle = "Консультація з Христиною Івасюк"
+	} else {
+		subject = "Підтвердження онлайн-запису - безкоштовна консультація з Христиною Івасюк"
+		durationText = "30 хвилин"
+		headerSubtitle = "Безкоштовна консультація з Христиною Івасюк"
+	}
 
 	// HTML body
 	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
@@ -160,7 +169,7 @@ func (e *EmailService) SendBookingConfirmation(name, email string, slotTime time
     <div class="container">
         <div class="header">
             <h1>Підтвердження онлайн-запису</h1>
-            <p>Безкоштовна консультація з Христиною Івасюк</p>
+            <p>%s</p>
         </div>
         <div class="content">
             <p>Вітаємо, <strong>%s</strong>!</p>
@@ -169,7 +178,7 @@ func (e *EmailService) SendBookingConfirmation(name, email string, slotTime time
             <div class="details">
                 <h3>Деталі зустрічі:</h3>
                 <div class="detail-row">📅 <strong>Дата і час:</strong> %s</div>
-                <div class="detail-row">⏱️ <strong>Тривалість:</strong> 30 хвилин</div>
+                <div class="detail-row">⏱️ <strong>Тривалість:</strong> %s</div>
                 <div class="detail-row">👤 <strong>Ім'я:</strong> %s</div>
                 <div class="detail-row">📧 <strong>Email:</strong> %s</div>
             </div>
@@ -200,7 +209,7 @@ func (e *EmailService) SendBookingConfirmation(name, email string, slotTime time
         </div>
     </div>
 </body>
-</html>`, name, formattedTime, name, email, getZoomSection(zoomLink), googleCalURL)
+</html>`, headerSubtitle, name, formattedTime, durationText, name, email, getZoomSection(zoomLink), googleCalURL)
 
 	// Plain text fallback
 	zoomText := ""
@@ -219,7 +228,7 @@ func (e *EmailService) SendBookingConfirmation(name, email string, slotTime time
 Деталі зустрічі:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📅 Дата і час: %s
-⏱️ Тривалість: 30 хвилин
+⏱️ Тривалість: %s
 👤 Ім'я: %s
 📧 Email: %s
 %s
@@ -237,7 +246,7 @@ func (e *EmailService) SendBookingConfirmation(name, email string, slotTime time
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Це автоматичне повідомлення. Будь ласка, не відповідайте на цей email.
-`, name, formattedTime, name, email, zoomText, googleCalURL)
+`, name, formattedTime, durationText, name, email, zoomText, googleCalURL)
 
 	// Generate iCalendar attachment
 	icalContent := generateICalendar(name, email, slotTime)

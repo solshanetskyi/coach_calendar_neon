@@ -6,13 +6,31 @@ import (
 )
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
-	html := `
+	// Check for duration query param
+	duration := r.URL.Query().Get("duration")
+	is1HourMode := duration == "1h"
+
+	// Set page content based on mode
+	var pageTitle, headerTitle, durationText, durationMinutes string
+	if is1HourMode {
+		pageTitle = "Консультація з Христиною Івасюк"
+		headerTitle = "Бронювання 60-хвилинної онлайн-консультації з Христиною Івасюк"
+		durationText = "60"
+		durationMinutes = "60"
+	} else {
+		pageTitle = "Безкоштовна консультація з Христиною Івасюк"
+		headerTitle = "Бронювання 30-хвилинної онлайн-консультації з Христиною Івасюк"
+		durationText = "30"
+		durationMinutes = "30"
+	}
+
+	html := fmt.Sprintf(`
 <!DOCTYPE html>
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Безкоштовна консультація з Христина Івасюк</title>
+    <title>%s</title>
     <style>
         * {
             margin: 0;
@@ -25,7 +43,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
             --primary-start: #800020;
             --primary-end: #5c0011;
             --accent-color: #a0153e;
-            --gradient-bg: linear-gradient(135deg, #800020 0%, #5c0011 100%);
+            --gradient-bg: linear-gradient(135deg, #800020 0%%, #5c0011 100%%);
         }
 
         body {
@@ -56,15 +74,15 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
             margin: 0 auto 20px;
             width: 180px;
             height: 180px;
-            border-radius: 50%;
+            border-radius: 50%%;
             overflow: hidden;
             border: 5px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
         }
 
         .coach-image {
-            width: 100%;
-            height: 100%;
+            width: 100%%;
+            height: 100%%;
             object-fit: cover;
         }
 
@@ -257,7 +275,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
         }
 
         .form-group input {
-            width: 100%;
+            width: 100%%;
             padding: 12px;
             border: 2px solid #e0e0e0;
             border-radius: 6px;
@@ -291,7 +309,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            width: 100%;
+            width: 100%%;
         }
 
         .btn-primary {
@@ -499,7 +517,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
             .nav-btn {
                 padding: 8px 12px;
                 font-size: 0.85rem;
-                width: 100%;
+                width: 100%%;
             }
 
             .month-navigation {
@@ -522,7 +540,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
             <div class="coach-image-container">
                 <img src="/coach_image_hq.jpg" alt="Христина Івасюк - Коуч" class="coach-image">
             </div>
-            <h1>Бронювання 30-хвилинної онлайн-консультації з Христиною Івасюк</h1>
+            <h1>%s</h1>
             <p>Виберіть день, потім оберіть зручний для вас час</p>
             <div class="timezone-info" id="timezoneInfo">Завантаження часового поясу...</div>
             <div class="duration-toggle">
@@ -612,6 +630,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
         let currentMonthIndex = 0;
         let availableMonths = [];
         let userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        let slotDuration = %s; // Duration in minutes (30 or 60)
 
         // Display user's timezone
         function displayTimezone() {
@@ -737,7 +756,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
                 document.getElementById('calendar').style.display = 'none';
                 document.getElementById('monthNavigation').style.display = 'none';
 
-                const response = await fetch('/api/slots');
+                const response = await fetch('/api/slots?duration=' + slotDuration);
                 if (!response.ok) {
                     throw new Error('Failed to load slots');
                 }
@@ -932,7 +951,8 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
                         slot_time: selectedSlot.slot_time,
                         name: name,
                         email: email,
-                        phone: phone
+                        phone: phone,
+                        duration: slotDuration
                     })
                 });
 
@@ -1003,7 +1023,11 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
     </script>
 </body>
 </html>
-`
+`, pageTitle, headerTitle, durationMinutes)
+
+	// Suppress unused variable warnings
+	_ = durationText
+
 	fmt.Fprint(w, html)
 }
 

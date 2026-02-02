@@ -14,7 +14,7 @@ import (
 
 // EmailSender interface for sending emails
 type EmailSender interface {
-	SendBookingConfirmation(name, email string, slotTime time.Time, zoomLink string) error
+	SendBookingConfirmation(name, email string, slotTime time.Time, zoomLink string, duration int) error
 	SendBookingNotificationToOwner(clientName, clientEmail, clientPhone string, slotTime time.Time, zoomLink string) error
 }
 
@@ -34,7 +34,7 @@ type BusySlot struct {
 type GoogleCalendarChecker interface {
 	GetBusySlots(startTime, endTime time.Time) ([]BusySlot, error)
 	IsSlotBusy(slotTime time.Time, durationMinutes int, busySlots []BusySlot) bool
-	CreateEvent(clientName, clientEmail, clientPhone string, slotTime time.Time, zoomLink string) error
+	CreateEvent(clientName, clientEmail, clientPhone string, slotTime time.Time, zoomLink string, duration int) error
 }
 
 // Re-export types from main package
@@ -53,6 +53,7 @@ type BookingRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Phone    string `json:"phone,omitempty"`
+	Duration int    `json:"duration,omitempty"` // 30 or 60 minutes
 }
 
 type AvailableSlot struct {
@@ -113,8 +114,33 @@ func (h *APIHandlers) GetSlots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only 30-minute slots are available
-	slots := h.GenerateAvailableSlots()
+	// Get duration from query param (default 30 minutes)
+	durationStr := r.URL.Query().Get("duration")
+	duration := 30
+	if durationStr == "60" {
+		duration = 60
+	}
+
+	// Generate base 30-minute slots
+	allSlots := h.GenerateAvailableSlots()
+
+	// Filter slots based on duration
+	var slots []AvailableSlot
+	if duration == 60 {
+		// For 60-minute slots, only keep slots on the hour (not :30)
+		for _, slot := range allSlots {
+			slotTime, err := time.Parse(time.RFC3339, slot.SlotTime)
+			if err != nil {
+				continue
+			}
+			// Only include slots that start on the hour
+			if slotTime.Minute() == 0 {
+				slots = append(slots, slot)
+			}
+		}
+	} else {
+		slots = allSlots
+	}
 
 	// Get booked slots from database
 	rows, err := h.DB.Query("SELECT slot_time FROM bookings")
@@ -199,9 +225,9 @@ func (h *APIHandlers) GetSlots(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Check Google Calendar busy slots (30-minute duration)
+		// Check Google Calendar busy slots
 		if h.GoogleCalendar != nil && len(googleBusySlots) > 0 {
-			if h.GoogleCalendar.IsSlotBusy(slotTime, 30, googleBusySlots) {
+			if h.GoogleCalendar.IsSlotBusy(slotTime, duration, googleBusySlots) {
 				slots[i].Available = false
 			}
 		}
@@ -296,10 +322,16 @@ func (h *APIHandlers) CreateBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Default duration to 30 minutes if not specified
+	duration := req.Duration
+	if duration != 60 {
+		duration = 30
+	}
+
 	// Send confirmation email to client if enabled
 	sendConfirmationEmail := strings.ToLower(os.Getenv("SEND_CONFIRMATION_EMAIL"))
 	if (sendConfirmationEmail == "yes" || sendConfirmationEmail == "true") && h.EmailService != nil {
-		err = h.EmailService.SendBookingConfirmation(req.Name, req.Email, slotTime, zoomLink)
+		err = h.EmailService.SendBookingConfirmation(req.Name, req.Email, slotTime, zoomLink, duration)
 		if err != nil {
 			// Log the error but don't fail the booking
 			log.Printf("Warning: Booking created but failed to send confirmation email: %v", err)
@@ -317,7 +349,7 @@ func (h *APIHandlers) CreateBooking(w http.ResponseWriter, r *http.Request) {
 
 	// Add event to Google Calendar if enabled
 	if h.GoogleCalendar != nil {
-		err = h.GoogleCalendar.CreateEvent(req.Name, req.Email, req.Phone, slotTime, zoomLink)
+		err = h.GoogleCalendar.CreateEvent(req.Name, req.Email, req.Phone, slotTime, zoomLink, duration)
 		if err != nil {
 			// Log the error but don't fail the booking
 			log.Printf("Warning: Failed to create Google Calendar event: %v", err)

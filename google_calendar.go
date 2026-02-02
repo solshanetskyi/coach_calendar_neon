@@ -162,15 +162,18 @@ func (g *GoogleCalendarService) ValidateCredentials() error {
 }
 
 // CreateEvent creates a new calendar event for a booking
-func (g *GoogleCalendarService) CreateEvent(clientName, clientEmail, clientPhone string, slotTime time.Time, zoomLink string) error {
+func (g *GoogleCalendarService) CreateEvent(clientName, clientEmail, clientPhone string, slotTime time.Time, zoomLink string, duration int) error {
 	if g == nil || g.service == nil {
 		return nil
 	}
 
 	ctx := context.Background()
 
-	// Calculate end time (30 minutes after start)
-	endTime := slotTime.Add(30 * time.Minute)
+	// Calculate end time based on duration (default to 30 minutes)
+	if duration != 60 {
+		duration = 30
+	}
+	endTime := slotTime.Add(time.Duration(duration) * time.Minute)
 
 	// Build description
 	description := fmt.Sprintf("Клієнт: %s\nEmail: %s", clientName, clientEmail)
