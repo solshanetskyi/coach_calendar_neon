@@ -30,10 +30,11 @@ type BusySlot struct {
 	End   time.Time
 }
 
-// GoogleCalendarChecker interface for checking Google Calendar availability
+// GoogleCalendarChecker interface for checking Google Calendar availability and creating events
 type GoogleCalendarChecker interface {
 	GetBusySlots(startTime, endTime time.Time) ([]BusySlot, error)
 	IsSlotBusy(slotTime time.Time, durationMinutes int, busySlots []BusySlot) bool
+	CreateEvent(clientName, clientEmail, clientPhone string, slotTime time.Time, zoomLink string) error
 }
 
 // Re-export types from main package
@@ -311,6 +312,15 @@ func (h *APIHandlers) CreateBooking(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			// Log the error but don't fail the booking
 			log.Printf("Warning: Failed to send booking notification to owner: %v", err)
+		}
+	}
+
+	// Add event to Google Calendar if enabled
+	if h.GoogleCalendar != nil {
+		err = h.GoogleCalendar.CreateEvent(req.Name, req.Email, req.Phone, slotTime, zoomLink)
+		if err != nil {
+			// Log the error but don't fail the booking
+			log.Printf("Warning: Failed to create Google Calendar event: %v", err)
 		}
 	}
 

@@ -54,8 +54,8 @@ func NewGoogleCalendarService() (*GoogleCalendarService, error) {
 		return nil, fmt.Errorf("either GOOGLE_SERVICE_ACCOUNT_FILE or GOOGLE_SERVICE_ACCOUNT_JSON is required")
 	}
 
-	// Add required scope
-	opts = append(opts, option.WithScopes(calendar.CalendarReadonlyScope))
+	// Add required scope (read-write to allow creating events)
+	opts = append(opts, option.WithScopes(calendar.CalendarScope))
 
 	ctx := context.Background()
 	service, err := calendar.NewService(ctx, opts...)
@@ -150,13 +150,62 @@ func (g *GoogleCalendarService) ValidateCredentials() error {
 
 	ctx := context.Background()
 
-	// Try to get calendar metadata to validate access
-	_, err := g.service.CalendarList.Get(g.calendarID).Context(ctx).Do()
+	// Use Calendars.Get instead of CalendarList.Get for shared calendars
+	// CalendarList only shows calendars owned by the service account
+	_, err := g.service.Calendars.Get(g.calendarID).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("failed to access calendar %s: %w (make sure you've shared the calendar with the service account email)", g.calendarID, err)
 	}
 
 	log.Printf("Successfully validated access to Google Calendar: %s", g.calendarID)
+	return nil
+}
+
+// CreateEvent creates a new calendar event for a booking
+func (g *GoogleCalendarService) CreateEvent(clientName, clientEmail, clientPhone string, slotTime time.Time, zoomLink string) error {
+	if g == nil || g.service == nil {
+		return nil
+	}
+
+	ctx := context.Background()
+
+	// Calculate end time (30 minutes after start)
+	endTime := slotTime.Add(30 * time.Minute)
+
+	// Build description
+	description := fmt.Sprintf("Клієнт: %s\nEmail: %s", clientName, clientEmail)
+	if clientPhone != "" {
+		description += fmt.Sprintf("\nТелефон: %s", clientPhone)
+	}
+	if zoomLink != "" {
+		description += fmt.Sprintf("\n\nZoom: %s", zoomLink)
+	}
+
+	// Create the event (without attendees - service accounts can't send invites)
+	event := &calendar.Event{
+		Summary:     fmt.Sprintf("Консультація: %s", clientName),
+		Description: description,
+		Start: &calendar.EventDateTime{
+			DateTime: slotTime.Format(time.RFC3339),
+			TimeZone: "Europe/Amsterdam",
+		},
+		End: &calendar.EventDateTime{
+			DateTime: endTime.Format(time.RFC3339),
+			TimeZone: "Europe/Amsterdam",
+		},
+	}
+
+	// Add Zoom link as conference data if available
+	if zoomLink != "" {
+		event.Location = zoomLink
+	}
+
+	createdEvent, err := g.service.Events.Insert(g.calendarID, event).Context(ctx).Do()
+	if err != nil {
+		return fmt.Errorf("failed to create Google Calendar event: %w", err)
+	}
+
+	log.Printf("Google Calendar event created: %s (ID: %s)", createdEvent.Summary, createdEvent.Id)
 	return nil
 }
 
