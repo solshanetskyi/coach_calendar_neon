@@ -183,17 +183,17 @@ func generateAvailableSlots() []AvailableSlot {
 	// Calculate tomorrow's date at midnight (slots are only available starting tomorrow)
 	tomorrow := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, location)
 
-	// Generate slots for January and February
+	// Generate slots for January through May
 	// Find the appropriate year based on current month
 	currentYear := now.Year()
 	currentMonth := now.Month()
 
 	var targetYear int
-	if currentMonth <= time.February {
-		// We're in January or February, use current year
+	if currentMonth <= time.May {
+		// We're in January-May, use current year
 		targetYear = currentYear
 	} else {
-		// We're past February, use next year
+		// We're past May, use next year
 		targetYear = currentYear + 1
 	}
 
@@ -204,6 +204,9 @@ func generateAvailableSlots() []AvailableSlot {
 	}{
 		{time.January, 31},
 		{time.February, 28}, // Will be adjusted for leap year
+		{time.March, 31},
+		{time.April, 30},
+		{time.May, 31},
 	}
 
 	// Adjust February days for leap year
