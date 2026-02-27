@@ -217,8 +217,8 @@ func generateAvailableSlots() []AvailableSlot {
 	// Generate slots for each month
 	for _, m := range months {
 		for day := 1; day <= m.days; day++ {
-			// Generate 30-minute slots from 9 AM to 8 PM (Amsterdam time)
-			for hour := 9; hour <= 20; hour++ {
+			// Generate 30-minute slots from 10 AM to 8 PM (Amsterdam time)
+			for hour := 10; hour <= 20; hour++ {
 				for minute := 0; minute < 60; minute += 30 {
 					// Skip the 30-minute slot at 8:30 PM to keep end time at 8 PM
 					if hour == 20 && minute == 30 {

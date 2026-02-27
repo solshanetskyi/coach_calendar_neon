@@ -28,6 +28,7 @@ func main() {
 	// Command line flags
 	apiURL := flag.String("api", DefaultAPIURL, "API base URL")
 	daysAhead := flag.Int("days", 30, "Number of days ahead to block slots")
+	startFrom := flag.String("start", "", "Start date (YYYY-MM-DD), defaults to today")
 	dryRun := flag.Bool("dry-run", false, "Show what would be blocked without actually blocking")
 	help := flag.Bool("help", false, "Show help message")
 
@@ -59,11 +60,18 @@ func main() {
 		log.Fatalf("Failed to load Amsterdam timezone: %v", err)
 	}
 
-	// Start from today
+	// Determine start date
 	now := time.Now().In(location)
-	startDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
-
-	startDate = startDate.AddDate(0, 0, 0)
+	var startDate time.Time
+	if *startFrom != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", *startFrom, location)
+		if err != nil {
+			log.Fatalf("Invalid -start date %q, expected YYYY-MM-DD: %v", *startFrom, err)
+		}
+		startDate = parsed
+	} else {
+		startDate = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
+	}
 
 	var slotsToBlock []time.Time
 
@@ -77,8 +85,8 @@ func main() {
 			continue
 		}
 
-		// Sunday: Block ALL slots (9:00 AM to 8:00 PM)
-		startHour := 9
+		// Sunday: Block ALL slots (10:00 AM to 8:00 PM)
+		startHour := 10
 		startMinute := 0
 		endHour := 20
 		endMinute := 0
