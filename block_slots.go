@@ -29,6 +29,7 @@ func main() {
 	apiURL := flag.String("api", DefaultAPIURL, "API base URL")
 	daysAhead := flag.Int("days", 30, "Number of days ahead to block slots")
 	startFrom := flag.String("start", "", "Start date (YYYY-MM-DD), defaults to today")
+	allDays := flag.Bool("all-days", false, "Block all days, not just Sundays")
 	dryRun := flag.Bool("dry-run", false, "Show what would be blocked without actually blocking")
 	help := flag.Bool("help", false, "Show help message")
 
@@ -80,8 +81,8 @@ func main() {
 		currentDate := startDate.AddDate(0, 0, day)
 		weekday := currentDate.Weekday()
 
-		// Only block Sundays
-		if weekday != time.Sunday {
+		// Only block Sundays (unless -all-days is set)
+		if !*allDays && weekday != time.Sunday {
 			continue
 		}
 
